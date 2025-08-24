@@ -1,23 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Chat Room</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Realtime Chat App</title>
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
   <style>
-    body { font-family: Arial; padding: 20px; }
-    #messages { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
-    #messages li { padding: 5px 10px; border-bottom: 1px solid #eee; }
-    #user { font-weight: bold; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background: #f7f9fc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px;
+      height: 100vh;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    #login {
+      margin-bottom: 20px;
+    }
+
+    #login input {
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    #login button {
+      padding: 10px 15px;
+      font-size: 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    #chat {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 600px;
+      height: 100%;
+    }
+
+    #messages {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 10px;
+      border: 1px solid #ccc;
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      list-style: none;
+    }
+
+    #messages li {
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      background: #e9f0fb;
+      border-radius: 6px;
+    }
+
+    #form {
+      display: flex;
+      gap: 10px;
+    }
+
+    #msg {
+      flex-grow: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    #sendBtn {
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    @media screen and (max-width: 600px) {
+      body {
+        padding: 15px;
+      }
+
+      #chat {
+        width: 100%;
+      }
+
+      #msg, #sendBtn {
+        font-size: 14px;
+      }
+    }
   </style>
 </head>
 <body>
-  <h2>Real-Time Chat Room</h2>
-  <div>
-    <input id="username" placeholder="Enter your name" />
-    <button onclick="joinChat()">Join Chat</button>
+
+  <h2>💬 Realtime Chat App</h2>
+
+  <div id="login">
+    <input id="username" placeholder="Enter your name..." />
+    <button onclick="joinChat()">Join</button>
   </div>
-  <ul id="messages"></ul>
-  <input id="msg" placeholder="Type message..." disabled />
-  <button onclick="sendMessage()" disabled id="sendBtn">Send</button>
+
+  <div id="chat" style="display: none;">
+    <ul id="messages"></ul>
+    <div id="form">
+      <input id="msg" placeholder="Type a message..." />
+      <button id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -26,14 +140,15 @@
 
     const msgInput = document.getElementById('msg');
     const sendBtn = document.getElementById('sendBtn');
+    const messages = document.getElementById('messages');
 
     function joinChat() {
       username = document.getElementById('username').value.trim();
-      if (!username) return alert("Enter a name!");
+      if (!username) return alert("Please enter your name");
+
       socket.emit('join', username);
-      msgInput.disabled = false;
-      sendBtn.disabled = false;
-      document.getElementById('username').disabled = true;
+      document.getElementById('login').style.display = 'none';
+      document.getElementById('chat').style.display = 'flex';
     }
 
     socket.on('chat history', (history) => {
@@ -63,7 +178,8 @@
     function addMessage(text) {
       const li = document.createElement('li');
       li.textContent = text;
-      document.getElementById('messages').appendChild(li);
+      messages.appendChild(li);
+      messages.scrollTop = messages.scrollHeight; // auto-scroll
     }
   </script>
 </body>
