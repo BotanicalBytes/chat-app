@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat Room</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    #messages { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
+    #messages li { padding: 5px 10px; border-bottom: 1px solid #eee; }
+    #user { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Real-Time Chat Room</h2>
+  <div>
+    <input id="username" placeholder="Enter your name" />
+    <button onclick="joinChat()">Join Chat</button>
+  </div>
+  <ul id="messages"></ul>
+  <input id="msg" placeholder="Type message..." disabled />
+  <button onclick="sendMessage()" disabled id="sendBtn">Send</button>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let username = '';
+
+    const msgInput = document.getElementById('msg');
+    const sendBtn = document.getElementById('sendBtn');
+
+    function joinChat() {
+      username = document.getElementById('username').value.trim();
+      if (!username) return alert("Enter a name!");
+      socket.emit('join', username);
+      msgInput.disabled = false;
+      sendBtn.disabled = false;
+      document.getElementById('username').disabled = true;
+    }
+
+    socket.on('chat history', (history) => {
+      history.forEach(m => addMessage(`${m.user}: ${m.text}`));
+    });
+
+    socket.on('chat message', (msg) => {
+      addMessage(`${msg.user}: ${msg.text}`);
+    });
+
+    socket.on('user joined', (name) => {
+      addMessage(`🔵 ${name} joined the chat`);
+    });
+
+    socket.on('user left', (name) => {
+      addMessage(`🔴 ${name} left the chat`);
+    });
+
+    function sendMessage() {
+      const message = msgInput.value.trim();
+      if (message) {
+        socket.emit('chat message', message);
+        msgInput.value = '';
+      }
+    }
+
+    function addMessage(text) {
+      const li = document.createElement('li');
+      li.textContent = text;
+      document.getElementById('messages').appendChild(li);
+    }
+  </script>
+</body>
+</html>
