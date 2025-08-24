@@ -150,9 +150,10 @@
       color: #fff;
     }
     #DevName{
-        position: absolute;
+        position: fixed;
         bottom: 24px;
         align-items: center;
+        align-self: center;
     }
     #sendBtn {
       padding: 12px 20px;
@@ -219,7 +220,7 @@
 <body>
   <h2>⚡ ChatVerse</h2>
 
-  <div id="login">
+  <!-- <div id="login">
     <input id="username" placeholder="Enter your name..." />
     <input id="room" placeholder="Enter or generate room code..." />
     <button onclick="joinRoom()">Join Room</button>
@@ -227,7 +228,22 @@
     <div id="DevName">
         <h4>@developed By Yogesh</h4>
     </div>
+  </div> -->
+
+  <div id="login">
+  <input id="username" placeholder="Enter your name..." />
+  
+  <div style="display: flex; align-items: center; gap: 10px;">
+    <input id="room" placeholder="Room code..." style="flex: 1;" />
+    <button id="copyCodeBtn" onclick="copyRoomCode()" style="display: none;">📋</button>
   </div>
+
+  <button onclick="joinRoom()">Join Room</button>
+  <button onclick="createRoom()">Create Room</button>
+    <div id="DevName">
+        <h4>@developed By Yogesh</h4>
+    </div>
+</div>
 
   <div id="chat">
     <div id="chat-header">
@@ -260,84 +276,73 @@
   </div>
 </div>
   <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    let username = '';
-    let room = '';
-    const servers = {
+ <script>
+const socket = io();
+let username = '';
+let room = '';
+let isCreatingRoom = false;
+
+const servers = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
 };
 
 let localStream = null;
 let peerConnection = null;
 
-    const msgInput = document.getElementById('msg');
-    const messages = document.getElementById('messages');
+const msgInput = document.getElementById('msg');
+const messages = document.getElementById('messages');
 
-    function joinRoom() {
-      username = document.getElementById('username').value.trim();
-      room = document.getElementById('room').value.trim().toUpperCase();
-      if (!username || !room) return alert("Please enter your name and room code");
-        if(room.length<6 || room.length>9) return alert("The room code must be 6 to 9 Character")
-      socket.emit('join room', { username, room });
-      document.getElementById('login').style.display = 'none';
-      document.getElementById('chat').style.display = 'flex';
-      document.getElementById('room-info').innerText = `🎯 Room Code: ${room}`;
-    }
+function joinRoom() {
+  username = document.getElementById('username').value.trim();
+  room = document.getElementById('room').value.trim().toUpperCase();
 
-    function createRoom() {
-      const code = Math.random().toString(36).substr(2, 6).toUpperCase();
-      document.getElementById('room').value = code;
-    }
+  if (!username || !room) return alert("Please enter your name and room code");
+  if (room.length < 6 || room.length > 9) return alert("Room code must be between 6 to 9 characters");
 
-    function leaveRoom() {
-      window.location.reload(); // simple reset for now
-    }
+  socket.emit('join room', { username, room });
 
-    function sendMessage() {
-      const msg = msgInput.value.trim();
-      if (msg) {
-        socket.emit('chat message', msg);
-        msgInput.value = '';
-      }
-    }
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('chat').style.display = 'flex';
+  document.getElementById('room-info').innerText = `🎯 Room Code: ${room}`;
+}
 
-   function addMessage(user, text, timestamp = null) {
+function createRoom() {
+  const code = Math.random().toString(36).substr(2, 6).toUpperCase();
+  document.getElementById('room').value = code;
+  document.getElementById('room').readOnly = true;
+  document.getElementById('copyCodeBtn').style.display = 'inline';
+  isCreatingRoom = true;
+}
+
+function copyRoomCode() {
+  const codeInput = document.getElementById('room');
+  codeInput.select();
+  document.execCommand('copy');
+  alert("Room code copied!");
+}
+
+function leaveRoom() {
+  if (confirm("Are you sure you want to leave the chat room?")) {
+    window.location.reload();
+  }
+}
+
+function sendMessage() {
+  const msg = msgInput.value.trim();
+  if (msg) {
+    socket.emit('chat message', msg);
+    msgInput.value = '';
+  }
+}
+
+function addMessage(user, text, timestamp = null) {
   const li = document.createElement('li');
   li.innerHTML = `<strong>${user}</strong> ${timestamp ? `<em>[${timestamp}]</em>` : ''}: ${text}`;
   messages.appendChild(li);
   messages.scrollTop = messages.scrollHeight;
 }
 
-
-    // Socket event handlers
-    // socket.on('chat history', (history) => {
-    //   history.forEach(m => {
-    //     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    //     addMessage(`${m.user}: ${m.text}`, m.user, ts);
-    //   });
-    // });
-
-    // socket.on('chat message', (msg) => {
-    //   const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    //   addMessage(`${msg.user}: ${msg.text}`, msg.user, ts);
-    // });
-
-    // socket.on('user joined', (name) => {
-    //   addMessage(`🔵 ${name} joined`);
-    // });
-
-    // socket.on('user left', (name) => {
-    //   addMessage(`🔴 ${name} left`);
-    // });
-
-    // socket.on('room users', (users) => {
-    //   const list = users.map(u => `<li>👤 ${u}</li>`).join('');
-    //   document.getElementById('user-list').innerHTML = `<ul>${list}</ul>`;
-    // });
-
-
-
+// SOCKET EVENTS
 socket.on('chat history', (history) => {
   history.forEach(m => {
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -358,42 +363,44 @@ socket.on('user left', (name) => {
   addMessage('System', `${name} left`);
 });
 
+socket.on('room users', (users) => {
+  const list = users.map(u => `<li>👤 ${u}</li>`).join('');
+  document.getElementById('user-list').innerHTML = `<ul>${list}</ul>`;
+});
 
-     // VIDEO CALL SECTION
-    function startCall() {
-    //   document.getElementById('video-container').style.display = 'flex';
+// VIDEO CALL
+function startCall() {
+  navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+    .then(stream => {
+      localStream = stream;
+      document.getElementById('localVideo').srcObject = stream;
 
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(stream => {
-          localStream = stream;
-          document.getElementById('localVideo').srcObject = stream;
+      peerConnection = new RTCPeerConnection(servers);
+      stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-          peerConnection = new RTCPeerConnection(servers);
-          stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+      peerConnection.ontrack = event => {
+        document.getElementById('remoteVideo').srcObject = event.streams[0];
+      };
 
-          peerConnection.ontrack = event => {
-            document.getElementById('remoteVideo').srcObject = event.streams[0];
-          };
+      peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', { candidate: event.candidate, room });
+        }
+      };
 
-          peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-              socket.emit('ice-candidate', { candidate: event.candidate, room });
-            }
-          };
-
-          peerConnection.createOffer()
-            .then(offer => {
-              peerConnection.setLocalDescription(offer);
-              socket.emit('offer', { offer, room });
-            });
+      peerConnection.createOffer()
+        .then(offer => {
+          peerConnection.setLocalDescription(offer);
+          socket.emit('offer', { offer, room });
         });
-    }
+    });
+}
 
-    function shareScreen() {
-//   if (!peerConnection) {
-//     alert("Start a call before sharing your screen.");
-//     return;
-//   }
+function shareScreen() {
+  if (!peerConnection) {
+    return alert("Start a call before sharing your screen.");
+  }
+
   navigator.mediaDevices.getDisplayMedia({ video: true })
     .then(screenStream => {
       const screenTrack = screenStream.getVideoTracks()[0];
@@ -407,59 +414,60 @@ socket.on('user left', (name) => {
     });
 }
 
-    function endCall() {
-      if (peerConnection) peerConnection.close();
-      if (localStream) localStream.getTracks().forEach(track => track.stop());
-      document.getElementById('video-container').style.display = 'none';
-    }
+function endCall() {
+  if (peerConnection) peerConnection.close();
+  if (localStream) localStream.getTracks().forEach(track => track.stop());
+  document.getElementById('video-container').style.display = 'none';
+}
 
-    socket.on('offer', ({ offer }) => {
-      document.getElementById('video-container').style.display = 'flex';
+socket.on('offer', ({ offer }) => {
+  document.getElementById('video-container').style.display = 'flex';
 
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(stream => {
-          localStream = stream;
-          document.getElementById('localVideo').srcObject = stream;
+  navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+    .then(stream => {
+      localStream = stream;
+      document.getElementById('localVideo').srcObject = stream;
 
-          peerConnection = new RTCPeerConnection(servers);
-          stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+      peerConnection = new RTCPeerConnection(servers);
+      stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-          peerConnection.ontrack = event => {
-            document.getElementById('remoteVideo').srcObject = event.streams[0];
-          };
+      peerConnection.ontrack = event => {
+        document.getElementById('remoteVideo').srcObject = event.streams[0];
+      };
 
-          peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-              socket.emit('ice-candidate', { candidate: event.candidate, room });
-            }
-          };
+      peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', { candidate: event.candidate, room });
+        }
+      };
 
-          peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-          peerConnection.createAnswer()
-            .then(answer => {
-              peerConnection.setLocalDescription(answer);
-              socket.emit('answer', { answer, room });
-            });
+      peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      peerConnection.createAnswer()
+        .then(answer => {
+          peerConnection.setLocalDescription(answer);
+          socket.emit('answer', { answer, room });
         });
     });
+});
 
-    socket.on('answer', ({ answer }) => {
-      peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    });
+socket.on('answer', ({ answer }) => {
+  peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+});
 
-    socket.on('ice-candidate', ({ candidate }) => {
-      if (candidate && peerConnection) {
-        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-    });
-
-     window.addEventListener('beforeunload', (event) => {
-  if (username && room) {
-    event.preventDefault();
-    event.returnValue = 'Are you sure you want to leave the chat room?'; // Required for some browsers to trigger the prompt
+socket.on('ice-candidate', ({ candidate }) => {
+  if (candidate && peerConnection) {
+    peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
   }
 });
 
-  </script>
+// Confirm before refresh/close
+window.addEventListener('beforeunload', (event) => {
+  if (username && room) {
+    event.preventDefault();
+    event.returnValue = "Are you sure you want to leave the chat room?";
+  }
+});
+</script>
+
 </body>
 </html>
