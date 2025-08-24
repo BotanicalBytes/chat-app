@@ -149,7 +149,11 @@
       background: #2e2b3a;
       color: #fff;
     }
-
+    #DevName{
+        position: absolute;
+        bottom: 24px;
+        align-items: center;
+    }
     #sendBtn {
       padding: 12px 20px;
       font-size: 16px;
@@ -181,6 +185,35 @@
         gap: 6px;
       }
     }
+
+    #video-container {
+      display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+    }
+
+    video {
+      width: 100%;
+      max-width: 400px;
+      border-radius: 10px;
+    }
+
+    .call-btns button {
+      padding: 10px 16px;
+      margin: 5px;
+      background: #333;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .call-btns button:hover {
+      background: #555;
+    }
+
   </style>
 </head>
 <body>
@@ -191,12 +224,15 @@
     <input id="room" placeholder="Enter or generate room code..." />
     <button onclick="joinRoom()">Join Room</button>
     <button onclick="createRoom()">Create Room</button>
+    <div id="DevName">
+        <h4>@developed By Yogesh</h4>
+    </div>
   </div>
 
   <div id="chat">
     <div id="chat-header">
       <div id="room-info"></div>
-      <button id="leaveBtn" onclick="leaveRoom()">🚪 Leave</button>
+      <button id="leaveBtn" onclick="leaveRoom()">🚪 Leave Room</button>
     </div>
 
     <div id="user-list"></div>
@@ -206,13 +242,34 @@
       <input id="msg" placeholder="Type a message..." />
       <button id="sendBtn" onclick="sendMessage()">Send</button>
     </div>
-  </div>
 
+<!-- Video call and Share Screen Feature yet to developed-->
+ <!-- 
+
+ <div id="video-container">
+    <video id="localVideo" autoplay muted playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+
+    <div class="call-btns">
+      <button onclick="startCall()">📞 Start Call</button>
+      <button onclick="shareScreen()">🖥️ Share Screen</button>
+      <button onclick="endCall()">❌ End Call</button>
+    </div>
+  </div>
+ -->
+  </div>
+</div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     let username = '';
     let room = '';
+    const servers = {
+  iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+};
+
+let localStream = null;
+let peerConnection = null;
 
     const msgInput = document.getElementById('msg');
     const messages = document.getElementById('messages');
@@ -221,7 +278,7 @@
       username = document.getElementById('username').value.trim();
       room = document.getElementById('room').value.trim().toUpperCase();
       if (!username || !room) return alert("Please enter your name and room code");
-
+        if(room.length<6 || room.length>9) return alert("The room code must be 6 to 9 Character")
       socket.emit('join room', { username, room });
       document.getElementById('login').style.display = 'none';
       document.getElementById('chat').style.display = 'flex';
@@ -245,38 +302,164 @@
       }
     }
 
-    function addMessage(text, user = '', timestamp = null) {
-      const li = document.createElement('li');
-      li.textContent = `${timestamp ? `[${timestamp}] ` : ''}${text}`;
-      messages.appendChild(li);
-      messages.scrollTop = messages.scrollHeight;
-    }
+   function addMessage(user, text, timestamp = null) {
+  const li = document.createElement('li');
+  li.innerHTML = `<strong>${user}</strong> ${timestamp ? `<em>[${timestamp}]</em>` : ''}: ${text}`;
+  messages.appendChild(li);
+  messages.scrollTop = messages.scrollHeight;
+}
+
 
     // Socket event handlers
-    socket.on('chat history', (history) => {
-      history.forEach(m => {
-        const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        addMessage(`${m.user}: ${m.text}`, m.user, ts);
-      });
+    // socket.on('chat history', (history) => {
+    //   history.forEach(m => {
+    //     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    //     addMessage(`${m.user}: ${m.text}`, m.user, ts);
+    //   });
+    // });
+
+    // socket.on('chat message', (msg) => {
+    //   const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    //   addMessage(`${msg.user}: ${msg.text}`, msg.user, ts);
+    // });
+
+    // socket.on('user joined', (name) => {
+    //   addMessage(`🔵 ${name} joined`);
+    // });
+
+    // socket.on('user left', (name) => {
+    //   addMessage(`🔴 ${name} left`);
+    // });
+
+    // socket.on('room users', (users) => {
+    //   const list = users.map(u => `<li>👤 ${u}</li>`).join('');
+    //   document.getElementById('user-list').innerHTML = `<ul>${list}</ul>`;
+    // });
+
+
+
+socket.on('chat history', (history) => {
+  history.forEach(m => {
+    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    addMessage(m.user, m.text, ts);
+  });
+});
+
+socket.on('chat message', (msg) => {
+  const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  addMessage(msg.user, msg.text, ts);
+});
+
+socket.on('user joined', (name) => {
+  addMessage('System', `${name} joined`);
+});
+
+socket.on('user left', (name) => {
+  addMessage('System', `${name} left`);
+});
+
+
+     // VIDEO CALL SECTION
+    function startCall() {
+    //   document.getElementById('video-container').style.display = 'flex';
+
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(stream => {
+          localStream = stream;
+          document.getElementById('localVideo').srcObject = stream;
+
+          peerConnection = new RTCPeerConnection(servers);
+          stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+          peerConnection.ontrack = event => {
+            document.getElementById('remoteVideo').srcObject = event.streams[0];
+          };
+
+          peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+              socket.emit('ice-candidate', { candidate: event.candidate, room });
+            }
+          };
+
+          peerConnection.createOffer()
+            .then(offer => {
+              peerConnection.setLocalDescription(offer);
+              socket.emit('offer', { offer, room });
+            });
+        });
+    }
+
+    function shareScreen() {
+//   if (!peerConnection) {
+//     alert("Start a call before sharing your screen.");
+//     return;
+//   }
+  navigator.mediaDevices.getDisplayMedia({ video: true })
+    .then(screenStream => {
+      const screenTrack = screenStream.getVideoTracks()[0];
+      const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+      if (sender) sender.replaceTrack(screenTrack);
+
+      screenTrack.onended = () => {
+        const camTrack = localStream.getVideoTracks()[0];
+        if (sender) sender.replaceTrack(camTrack);
+      };
+    });
+}
+
+    function endCall() {
+      if (peerConnection) peerConnection.close();
+      if (localStream) localStream.getTracks().forEach(track => track.stop());
+      document.getElementById('video-container').style.display = 'none';
+    }
+
+    socket.on('offer', ({ offer }) => {
+      document.getElementById('video-container').style.display = 'flex';
+
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(stream => {
+          localStream = stream;
+          document.getElementById('localVideo').srcObject = stream;
+
+          peerConnection = new RTCPeerConnection(servers);
+          stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+          peerConnection.ontrack = event => {
+            document.getElementById('remoteVideo').srcObject = event.streams[0];
+          };
+
+          peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+              socket.emit('ice-candidate', { candidate: event.candidate, room });
+            }
+          };
+
+          peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+          peerConnection.createAnswer()
+            .then(answer => {
+              peerConnection.setLocalDescription(answer);
+              socket.emit('answer', { answer, room });
+            });
+        });
     });
 
-    socket.on('chat message', (msg) => {
-      const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      addMessage(`${msg.user}: ${msg.text}`, msg.user, ts);
+    socket.on('answer', ({ answer }) => {
+      peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
     });
 
-    socket.on('user joined', (name) => {
-      addMessage(`🔵 ${name} joined`);
+    socket.on('ice-candidate', ({ candidate }) => {
+      if (candidate && peerConnection) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      }
     });
 
-    socket.on('user left', (name) => {
-      addMessage(`🔴 ${name} left`);
-    });
+     window.addEventListener('beforeunload', (event) => {
+  if (username && room) {
+    event.preventDefault();
+    event.returnValue = 'Are you sure you want to leave the chat room?'; // Required for some browsers to trigger the prompt
+  }
+});
 
-    socket.on('room users', (users) => {
-      const list = users.map(u => `<li>👤 ${u}</li>`).join('');
-      document.getElementById('user-list').innerHTML = `<ul>${list}</ul>`;
-    });
   </script>
 </body>
 </html>
