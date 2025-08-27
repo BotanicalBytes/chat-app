@@ -115,25 +115,75 @@
       color: #dddddd;
     }
 
-    #messages {
-      flex-grow: 1;
-      overflow-y: auto;
-      padding: 12px;
-      border-radius: 10px;
-      background: #ffffff10;
-      backdrop-filter: blur(8px);
-      margin-bottom: 10px;
-      height: 50vh;
-    }
+    /* WhatsApp-style chat bubbles */
+#messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #ffffff10;
+  backdrop-filter: blur(8px);
+  margin-bottom: 10px;
+  height: 66vh;
+  overflow-y: auto;
+}
 
-    #messages li {
-      margin-bottom: 12px;
-      padding: 10px 14px;
-      background: #ffffff15;
-      border-left: 4px solid #ff3cac;
-      border-radius: 6px;
-      color: #eee;
-    }
+.message-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.message-row.sent {
+  align-items: flex-end;
+}
+
+.message-bubble {
+  max-width: 70%;
+  padding: 10px 16px 20px 16px; /* extra bottom padding for timestamp */
+  border-radius: 18px;
+  position: relative;
+  font-size: 15px;
+  word-break: break-word;
+  margin-bottom: 2px;
+  display: inline-block;
+}
+
+.message-sent {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  color: #222;
+  border-bottom-right-radius: 4px;
+}
+
+.message-received {
+  background: #fff;
+  color: #222;
+  border-bottom-left-radius: 4px;
+  border: 1px solid #e0e0e0;
+}
+
+.message-system {
+  width: 100%;
+  text-align: center;
+  display: block;
+  background: transparent;
+  color: #aaa;
+  font-size: 13px;
+  padding: 0;
+  margin: 6px 0;
+}
+
+.timestamp {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  text-align: right;
+  margin-top: 6px;
+  margin-bottom: -8px;
+  background: transparent;
+}
 
     #form {
       display: flex;
@@ -241,7 +291,7 @@
   <button onclick="joinRoom()">Join Room</button>
   <button onclick="createRoom()">Create Room</button>
     <div id="DevName">
-        <h4>@developed By Yogesh</h4>
+        <h4>⚙️ Developed By Yogesh</h4>
     </div>
 </div>
 
@@ -292,6 +342,14 @@ let peerConnection = null;
 const msgInput = document.getElementById('msg');
 const messages = document.getElementById('messages');
 
+// Add this event listener for Enter key
+msgInput.addEventListener('keypress', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault(); // Prevent default Enter key behavior
+    sendMessage(); // Call the sendMessage function
+  }
+});
+
 function joinRoom() {
   username = document.getElementById('username').value.trim();
   room = document.getElementById('room').value.trim().toUpperCase();
@@ -337,7 +395,38 @@ function sendMessage() {
 
 function addMessage(user, text, timestamp = null) {
   const li = document.createElement('li');
-  li.innerHTML = `<strong>${user}</strong> ${timestamp ? `<em>[${timestamp}]</em>` : ''}: ${text}`;
+  let rowClass = '';
+  let bubbleClass = '';
+  let showUser = false;
+
+  if (user === 'System') {
+    rowClass = 'message-row system';
+    bubbleClass = 'message-system';
+    li.innerHTML = `<div class="${rowClass}"><span class="${bubbleClass}">${text}</span></div>`;
+  } else if (user === username) {
+    rowClass = 'message-row sent';
+    bubbleClass = 'message-bubble message-sent';
+    li.innerHTML = `
+      <div class="${rowClass}">
+        <div class="${bubbleClass}">
+          ${text}
+          <span class="timestamp">${timestamp || ''}</span>
+        </div>
+      </div>
+    `;
+  } else {
+    rowClass = 'message-row received';
+    bubbleClass = 'message-bubble message-received';
+    li.innerHTML = `
+      <div class="${rowClass}">
+        <div class="${bubbleClass}">
+          <strong>${user}</strong><br>
+          ${text}
+          <span class="timestamp">${timestamp || ''}</span>
+        </div>
+      </div>
+    `;
+  }
   messages.appendChild(li);
   messages.scrollTop = messages.scrollHeight;
 }
@@ -345,13 +434,13 @@ function addMessage(user, text, timestamp = null) {
 // SOCKET EVENTS
 socket.on('chat history', (history) => {
   history.forEach(m => {
-    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const ts = new Date(m.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     addMessage(m.user, m.text, ts);
   });
 });
 
 socket.on('chat message', (msg) => {
-  const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const ts = new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   addMessage(msg.user, msg.text, ts);
 });
 
